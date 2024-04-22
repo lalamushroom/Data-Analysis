@@ -1,0 +1,86 @@
+---
+title: "p2test"
+author: "Junting Yang"
+date: "2023-10-06"
+output: html_document
+---
+## 2.1 load libraries
+
+```{r message=FALSE, warning=FALSE}
+library(rpart)
+library(rpart.plot)
+```
+
+
+
+## 2.3 Load the main data
+
+```{r}
+youtubedata <- read.csv("Global YouTube Statistics.csv")
+```
+
+```{r}
+
+# 创建分类模型
+decision_tree_model <- rpart(Category ~ subscribers + video.views + uploads + 
+                              video_views_rank + country_rank + channel_type_rank + 
+                              video_views_for_the_last_30_days + lowest_monthly_earnings + 
+                              highest_monthly_earnings + lowest_yearly_earnings + 
+                              highest_yearly_earnings + subscribers_for_last_30_days + 
+                              created_year + Gross.tertiary.education.enrollment.. + 
+                              Population + Unemployment.rate + Urban_population + 
+                              Latitude + Longitude, data = youtubedata)
+
+# 绘制决策树
+rpart.plot(decision_tree_model)
+
+# Logistic Regression Classifier
+# 创建分类模型
+logistic_regression_model <- glm(Category ~ subscribers + video.views + uploads + 
+                                   video_views_rank + country_rank + channel_type_rank + 
+                                   video_views_for_the_last_30_days + lowest_monthly_earnings + 
+                                   highest_monthly_earnings + lowest_yearly_earnings + 
+                                   highest_yearly_earnings + subscribers_for_last_30_days + 
+                                   created_year + Gross.tertiary.education.enrollment.. + 
+                                   Population + Unemployment.rate + Urban_population + 
+                                   Latitude + Longitude, data = youtubedata, family = "binomial")
+
+# 打印模型摘要
+summary(logistic_regression_model)
+
+# Naïve Bayes Classifier
+library(e1071)
+
+# 创建分类模型
+naive_bayes_model <- naiveBayes(Category ~ subscribers + video.views + uploads + 
+                                video_views_rank + country_rank + channel_type_rank + 
+                                video_views_for_the_last_30_days + lowest_monthly_earnings + 
+                                highest_monthly_earnings + lowest_yearly_earnings + 
+                                highest_yearly_earnings + subscribers_for_last_30_days + 
+                                created_year + Gross.tertiary.education.enrollment.. + 
+                                Population + Unemployment.rate + Urban_population + 
+                                Latitude + Longitude, data = youtubedata)
+
+# 打印模型摘要
+print(naive_bayes_model)
+
+# 聚类分析
+library(cluster)
+
+# 选择用于聚类的变量
+cluster_data <- youtubedata[, c("subscribers", "video.views", "uploads", 
+                                "video_views_rank", "country_rank", "channel_type_rank", 
+                                "video_views_for_the_last_30_days", "lowest_monthly_earnings", 
+                                "highest_monthly_earnings", "lowest_yearly_earnings", 
+                                "highest_yearly_earnings", "subscribers_for_last_30_days", 
+                                "created_year", "Gross.tertiary.education.enrollment..", 
+                                "Population", "Unemployment.rate", "Urban_population", 
+                                "Latitude", "Longitude")]
+
+# 使用K均值聚类
+kmeans_model <- kmeans(cluster_data, centers = 3)
+
+# 打印聚类结果
+print(kmeans_model)
+
+

@@ -1,0 +1,892 @@
+---
+title: "CITS4009 - Project 1"
+author: "Junting YANG（24043287）"
+date: "2023-08-29"
+output: html_document
+---
+
+# 1 Introduction
+
+This dataset comprises detailed information about a group of top creators, including their subscriber counts, video view counts, upload frequencies, home countries, earnings, and more. We will conduct exploratory data analysis (EDA) to unearth valuable insights from it.
+
+## 2.1 load libraries
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(ggthemes)
+library(timeDate)
+library(lubridate)
+library(ca)
+library(dplyr)
+library(moderndive)
+library(gapminder)
+library(skimr)
+library(gridExtra)
+library(reshape2)
+library(maps)
+library(ggpubr)
+library(hexbin)
+library(countrycode)
+
+```
+
+## 2.2 Setting up a plotting theme so that all charts look coherent
+
+```{r}
+common_theme <- theme(panel.grid = element_blank(), panel.background = element_blank(),
+                      panel.border = element_rect(color = "grey", fill = NA),
+                      plot.title = element_text(color = "#f07237", size = 16, hjust = 0.5))
+
+
+common_theme_2 <- theme(
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA), 
+  plot.title = element_text(color = "#f07237", size = 16, hjust = 0.5))
+common_theme_3<-theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size =10, hjust = 0),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8)
+  )
+common_theme_4<-theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.title = element_text(color = "#f07237", size =13, hjust = 0),
+    
+  )
+```
+
+## 2.3 Load the main data
+
+```{r}
+youtubedata <- read.csv("Global YouTube Statistics.csv")
+```
+
+To ensure the accuracy of the data structure and format, the data type of the entered data has been checked by class() function
+
+```{r}
+class(youtubedata)
+```
+
+The data structure of 'youtubedata' is a data frame, enabling us to utilize the ggplot package to conduct operations and visualizations on it.
+
+# 3 Data overview and initial transformations
+
+## 3.1 Data overview
+
+Using str() to analyze the data
+
+```{r}
+str(youtubedata)
+```
+
+There are 995 obs with 28 variables, comprised by 17 numeric, 7 characteristic and 4 integer variables.We can notice that within these variables, there are four distinct types of rankings. The "rank" variable signifies the position of YouTube channels in terms of the number of subscribers they possess. On the other hand, the "video_views_rank" variable denotes the ranking of YouTube channels based on their accumulated video views. Furthermore,the"country_rank" variable signifies the rank of YouTube channels relative to the number of subscribers within the same country. Lastly, the "channel_type_rank" variable indicates the ranking of YouTube channels based on their specific channel type. Although the criteria for assigning these rankings may differ, a common thing is: a lower ranking value indicates the higher views or subscriber counts. Furthermore, it's worth noting that the data in the "Abbreviation" and "Country" variables are essentially the same. Regarding the "created month" variable, it's currently represented as character strings like "Jan" for January and "Feb" for February. To facilitate analysis, we can convert these month abbreviations into numerical values.
+
+Using summary() to analyze the data
+
+```{r}
+summary(youtubedata)
+```
+
+By utilizing the sum() function,it becomes evident that the percentage variable "Gross tertiary educationenrollment (%)"contains at least one outlier (its maximum value should not exceed 100, yet the results indicate a maximum of 113.10).
+
+Using head() to view the initial few observations
+
+```{r}
+head(youtubedata)
+```
+
+We can observe that certain character variables also exhibit missing values, which are denoted as "nan" or "NaN". Since RStudio interprets these as character values, we will proceed to replace these missing values with a format recognized by RStudio shortly.
+
+## 3.2 Initial transformations
+
+Building on the noted observations, we'll reformat columns and introduce new ones for enhanced analysis.
+
+```{r message=FALSE}
+# Substitute the "nan" string or the value "NaN" with NA across all columns.
+youtubedata[youtubedata == "nan"] <- NA
+youtubedata[youtubedata == "NaN"] <- NA
+
+
+#Replace the abbreviated month names in the string variable with their corresponding numerical values and convert the variable to a numeric data type.
+month<- c(Jan = 1, Feb = 2, Mar = 3, Apr = 4, May = 5, Jun = 6,
+                   Jul = 7, Aug = 8, Sep = 9, Oct = 10, Nov = 11, Dec = 12)
+youtubedata$created_month <- month[youtubedata$created_month]
+youtubedata$created_month <- as.numeric(youtubedata$created_month)
+
+
+# Create a data frame containing four "rank" vectors.
+youtubedata_rank <- data.frame(
+  video_views_rank = youtubedata$video_views_rank,
+  rank = youtubedata$rank,
+  country_rank = youtubedata$country_rank,
+  channel_type_rank = youtubedata$channel_type_rank
+)
+
+
+#Replace percentages greater than 100 with NA.
+youtubedata$Gross.tertiary.education.enrollment....[youtubedata$Gross.tertiary.education.enrollment....> 100] <- NA
+
+#Create new variables based on existing ones.
+youtubedata<-youtubedata %>%
+  mutate(
+    subscribers_growth_average_30 =subscribers_for_last_30_days/30,        views_per_subscriber=video.views/subscribers)
+
+
+# Create a data frame containing the median for each year.
+median_rank_by_year <- youtubedata %>%
+  filter(created_year >= 2004) %>%
+  group_by(created_year) %>%
+  summarize(median_rank = median(rank, na.rm = TRUE),
+            median_views_rank = median(video_views_rank, na.rm = TRUE),
+            median_country_rank = median(country_rank, na.rm = TRUE),
+            median_channel_type_rank = median(channel_type_rank, na.rm = TRUE))
+
+```
+
+# 4 Data cleaning
+
+Checking for duplicates, the result shows 0 duplicate rows.
+
+```{r message=FALSE}
+duplicate_rows <- youtubedata[duplicated(youtubedata), ]
+print(duplicate_rows)
+
+
+```
+
+Analyze the number of NA  of each column.
+
+```{r paged.print=FALSE}
+apply(is.na(youtubedata), 2, sum)
+```
+
+
+There are many variables about geographical information have the same number of missing values, raising suspicion that some missing values correspond to the same observations.
+
+```{r}
+count_suspected_na_rows <- sum(rowSums(is.na(youtubedata[, c("Longitude", "Latitude", "Urban_population", "Unemployment.rate", "Population", "Country", "Abbreviation")])) == 7)
+print(count_suspected_na_rows)
+
+
+```
+
+The results indicate that the missing values of these variables indeed originate from the same observations.When studying the relationships between these variables, create a data frame that removes common missing values.
+
+```{r}
+youtubedata_geo_in<- youtubedata[, c("Longitude", "Latitude", "Urban_population", "Unemployment.rate", "Population", "Country", "Abbreviation")]
+youtubedata_geo_in_no_na <- youtubedata_geo_in[complete.cases(youtubedata_geo_in), ]
+
+```
+
+Due to the relatively small number of missing values in 'channel_type,' it has been chosen for deletion.
+
+```{r}
+youtubedata <- youtubedata[!is.na(youtubedata$channel_type), ]
+
+```
+
+Considering the following analysis, replace values less than or equal to zero with a small positive value (0.0001) to prevent infinite value warnings.
+```{r}
+youtubedata<- youtubedata %>%
+  mutate(video.views = ifelse(video.views <= 0, 0.0001, video.views))
+
+```
+
+Due to the skewed distribution of the 'created_year' and four "rank" variable, median imputation is used to fill missing values.
+
+```{r}
+youtubedata$created_year[is.na(youtubedata$created_year)] <- median(youtubedata$created_year, na.rm = TRUE)
+
+median_rank_by_year <- youtubedata %>%
+  filter(created_year >= 2004) %>%
+  group_by(created_year) %>%
+  summarize(median_rank = median(rank, na.rm = TRUE),
+            median_views_rank = median(video_views_rank, na.rm = TRUE),
+            median_country_rank = median(country_rank, na.rm = TRUE),
+            median_channel_type_rank = median(channel_type_rank, na.rm = TRUE))
+
+```
+
+Considering the following analysis,Remove values outside three standard deviations of "subscribers_growth_average_30". Nnote that we also conducted visualization using the unaltered data.
+
+```{r}
+delete_data_1 <- na.omit(youtubedata)
+mean_value1 <- mean(delete_data_1$subscribers_growth_average_30)
+std_dev1 <- sd(delete_data_1$subscribers_growth_average_30)
+lower_threshold <- mean_value1 - 2 * std_dev1
+upper_threshold <- mean_value1 + 2 * std_dev1
+delete_data_1 <- delete_data_1[delete_data_1$subscribers_growth_average_30 >= lower_threshold & delete_data_1$subscribers_growth_average_30 <= upper_threshold, ]
+
+```
+
+# 5 Data visualization
+
+## 5.1 Distribution of subscribers 
+
+```{r warning=FALSE}
+p0<- ggplot(youtubedata, aes(y = subscribers)) +
+  geom_boxplot(fill = "grey") +
+  labs(title = "Subscribers Distribution", x = "", y = "Subscribers Count") +
+  common_theme +
+  ylim(0, quantile(youtubedata$subscribers, 0.95))  
+
+print(p0)
+```
+
+Due to the highly right-skewed distribution of subscriber counts, the histogram plot is created using a logarithmic scale.
+
+```{r warning=FALSE}
+p1 <- ggplot(data = youtubedata, aes(x = subscribers)) +
+  geom_histogram(binwidth = 0.2, fill = "grey") +
+  scale_x_log10() +
+  labs(title = "Distribution of Subscribers (Log Scale)",
+       x = "Subscribers (Log Scale)",
+       y = "Count") +
+  annotate("text", x = 9e+07, y = 400, label = "Most subscribers are within the 20-30 million range.", color = "#44aac9") +
+  common_theme
+
+p2 <- ggplot(youtubedata, aes(x = subscribers)) +
+  geom_density(fill = "grey", alpha = 0.5) +
+  scale_x_log10() +
+  labs(title = "Subscriber Distribution Density Plot",
+       x = "Subscribers (Log Scale)",
+       y = "Density") +
+  common_theme
+
+grid.arrange(p1, p2, ncol = 1)
+```
+
+## 5.2 Distribution of video views
+
+```{r warning=FALSE}
+p3 <- ggplot(data = youtubedata, aes(x = video.views)) +
+  geom_histogram(binwidth = 0.2, fill = "grey") +
+  scale_x_log10() +
+  labs(title = "Video Views Distribution Histogram (Log Scale)",
+       x = "Video Views",
+       y = "Count")+common_theme +
+  annotate("text", x = 1e+03, y = 150, label = "a normal distribution within a certain range", color = "#44aac9")
+
+p4 <- ggplot(data = youtubedata, aes(x = video.views)) +
+  geom_density(fill = "grey", alpha = 0.5) +
+  scale_x_log10() +
+  labs(title = "Video Views Distribution Density Plot (Log Scale)",
+       x = "Video Views",
+       y = "Density")+common_theme
+
+grid.arrange(p3, p4, ncol = 1)
+
+
+```
+
+It can be observed that the 'video_views' variable may exhibits a normal distribution within a certain range.
+
+## 5.3 Distribution of  channel types
+
+```{r}
+ggplot(youtubedata, aes(x = channel_type)) +
+  geom_bar(fill = "grey") +
+  labs(title = "Channel Type Distribution", x = "Channel Type", y = "Channel Count") +
+  theme_minimal() +
+  common_theme_2
+
+channel_type_o<- youtubedata %>%
+  count(channel_type) %>%
+  arrange(desc(n)) %>%
+  pull(channel_type)
+
+
+ggplot(youtubedata, aes(x = factor(channel_type, levels = channel_type_o), fill = channel_type)) +
+  geom_bar() +
+  labs(title = "Ordered Channel Type Distribution", y = "Channel Count", x = "Channel Type") +
+  theme_minimal() +
+  coord_flip() +
+  common_theme_2
+
+```
+
+Nonprofit has the lowest count, while Entertainment has the highest count.
+
+## 5.4 Relationships of Subscribers and Video Views
+
+```{r}
+p5<- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+  geom_jitter(color = "skyblue", alpha = 0.6, width = 0.2, height = 0.2) +
+  labs(title = "Subscribers vs. Video Views",
+       x = "Subscribers", y = "Video Views") +
+  common_theme
+print(p5)
+```
+
+Despite using geom_jitter(), severe overlap persists. Trying Hexbin scatter plots and kernel density estimation to enhance visualization.
+
+```{r}
+p6 <- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+  geom_hex() +
+  labs(title = "Hexbin Scatter Plot Subscribers vs. Video Views",
+       x = "Subscribers", y = "Video Views") +
+  common_theme
+print(p6)
+
+p7 <- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+  geom_density_2d(color = "skyblue", alpha = 0.6) +
+  labs(title = "Kernel Density Estimation: Subscribers vs. Video Views",
+       x = "Subscribers", y = "Video Views") +
+  common_theme
+print(p7)
+
+```
+
+Exploring the linear regression relationship between subscribers and video views，It can be observed that there may be a correlation between the two variables.
+
+```{r message=FALSE}
+linear_relationship_plot <- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+  geom_jitter(color = "skyblue", alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "#0f5894") +  
+  labs(title = "Linear Relationship: Subscribers vs. Video Views",
+       x = "Subscribers", y = "Video Views") +
+  common_theme
+
+print(linear_relationship_plot)
+
+```
+
+## 5.5 Relationships among four different "rank" variables
+
+```{r}
+cor_matrix <- cor(youtubedata_rank, use = "pairwise.complete.obs", method = "spearman")
+
+p8<- ggplot(data = melt(cor_matrix), aes(x = Var2, y = Var1, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "#4fa10d", midpoint = 0) +
+  labs(title = "Spearman Correlation Heatmap among four rank-variable", x = "", y = "") +
+  common_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(p8)
+```
+
+It can be observed that there is a certain degree of correlation among the four variables.
+
+## 5.6 Relationship between average subscriber growth amount and channel type
+
+```{r warning=FALSE}
+max_y <- max(youtubedata$subscribers_growth_average_30, na.rm = TRUE)
+
+p9 <- ggplot(youtubedata, aes(x = channel_type, y = subscribers_growth_average_30, fill = channel_type)) +
+  geom_boxplot(width = 0.5, fill = "#786f72", color = "#eda8bf") + 
+  labs(
+    x = "Channel Type",
+    y = "Average Subscribers Growth Amount (30 days)",
+    title = "Average Subscribers Growth Amount Distribution by Channel Type"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    axis.title.x = element_blank(),  
+    axis.title.y = element_blank()  
+  ) +
+  scale_fill_manual(values = rainbow(length(unique(youtubedata$channel_type))) )
+p9 <- p9 + coord_cartesian(ylim = c(0, max_y))
+print(p9)
+
+
+```
+
+
+```{r}
+p13 <- ggplot(delete_data_1, aes(x = subscribers_growth_average_30)) +
+  geom_density(alpha = 0.5, fill = "#786f72", color = "#eda8bf") +
+  labs(
+    x = "Average Subscribers Growth Amount (30 days)",
+    y = "Density",
+    title = "Overall Density Plot of Average Subscribers Growth Amount (30 days)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 10, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    axis.title.x = element_blank(),  
+    axis.title.y = element_blank() 
+  )
+
+print(p13)
+
+
+```
+
+Due to the presence of outliers in the raw data, the box plot may not effectively reveal the distribution pattern. Next, we will create a plot using data that has been cleaned by removing values beyond 2 standard deviations.
+
+```{r warning=FALSE}
+p11 <- ggplot(delete_data_1, aes(x = channel_type, y = subscribers_growth_average_30, fill = channel_type)) +
+  geom_boxplot(width = 0.5, fill = "#786f72", color = "#eda8bf")  + 
+  labs(
+    x = "Channel Type",
+    y = "Average Subscribers Growth Amount (30 days)",
+    title = "Average Subscribers Growth Amount (30 days) Distribution by Channel Type (Outliers Removed)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 10, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    axis.title.x = element_blank(),  
+    axis.title.y = element_blank() 
+  ) +
+  scale_fill_manual(values = rainbow(length(unique(delete_data_1$channel_type))) )
+print(p11)
+
+
+```
+
+Most channel types have a daily average subscriber growth of up to 20,000, and Education, Autos, and Nonprofit channels show distributions  are  may close to normal.Created a density plot to visualize the distribution of data for different channel types.
+
+```{r}
+p12 <- ggplot(delete_data_1, aes(x = subscribers_growth_average_30, fill = channel_type)) +
+  geom_density(alpha = 0.5) + 
+  labs(
+    x = "Average Subscribers Growth Amount (30 days)",
+    y = "Density",
+    title = "Density Plot of Average Subscribers Growth Amount (30 days) by Channel Type (Outliers Removed)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 9, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    axis.title.x = element_blank(),  
+    axis.title.y = element_blank() 
+  ) +
+  scale_fill_manual(values = rainbow(length(unique(delete_data_1$channel_type)))) +
+  facet_wrap(~ channel_type, scales = "free_y") +
+  xlim(0, NA) 
+
+print(p12)
+
+```
+
+Most of the data exhibits a right-skewed distribution.Create the overall daily subscription growth density curves without categorizing by channel type.
+
+
+```{r warning=FALSE}
+p12_total <- ggplot(delete_data_1, aes(x = subscribers_growth_average_30)) +
+  geom_density(alpha = 0.5, fill = "#786f72", color = "#eda8bf") + 
+  labs(
+    x = "Average Subscribers Growth Amount (30 days)",
+    y = "Density",
+    title = "Total Density Plot of Average Subscribers Growth Amount (30 days) (Outliers Removed)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 10, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    axis.title.x = element_blank(),  
+    axis.title.y = element_blank() 
+  ) +
+  xlim(0, NA) 
+
+p13 <- ggplot(youtubedata, aes(x = subscribers_growth_average_30)) +
+  geom_density(alpha = 0.5, fill = "#786f72", color = "#eda8bf") +
+  labs(
+    x = "Average Subscribers Growth Amount (30 days)",
+    y = "Density",
+    title = "Overall Density Plot of Average Subscribers Growth Amount (30 days)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 10, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    axis.title.x = element_blank(),  
+    axis.title.y = element_blank() 
+  )
+grid.arrange(p13, p12_total, ncol = 1)
+
+
+```
+
+Both sets of density curves exhibit a right-skewed distribution, with data points beyond three standard deviations removed to less skew the concentration to the right.
+
+## 5.7 Distribution of youtuber creation year
+
+```{r}
+
+p14 <- ggplot(youtubedata, aes(x = created_year)) +
+  geom_histogram(binwidth = 1, fill = "grey", color = "black") +
+  labs(
+    x = "Year Created",
+    y = "Count",
+    title = "Distribution of Youtuber Creation Year"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 16, hjust = 0.5)
+  )
+
+print(p14)
+
+
+
+```
+
+You can see that most Youtubers started their channels between 2004 and 2022. Let's exclude the data before 2004 and analyze its distribution
+
+```{r warning=FALSE}
+p15 <- ggplot(youtubedata[youtubedata$created_year >= 2004, ], aes(x = created_year)) +
+  geom_histogram(binwidth = 1, fill = "grey", color = "black") +
+  labs(
+    x = "Year Created",
+    y = "Count",
+    title = "Distribution of Youtuber Creation Year"
+  ) +
+  scale_x_continuous(breaks = seq(2004, max(youtubedata$created_year), by = 1)) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 16, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)  # 旋转 x 轴标签
+  )
+
+p16 <- ggplot(youtubedata[youtubedata$created_year >= 2004, ], aes(x = created_year)) +
+  geom_line(stat = "count", color ="#d14369", size = 1) +
+  labs(
+    x = "Year Created",
+    y = "Count",
+    title = "Distribution of Youtuber Creation Year"
+  ) +
+  scale_x_continuous(breaks = seq(2004, max(youtubedata$created_year), by = 1)) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "grey", fill = NA),
+    plot.title = element_text(color = "#f07237", size = 16, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)  
+  )
+
+grid.arrange(p15, p16, ncol = 1)
+
+```
+
+We can observe that the years in which youtubers started their channels (2004-2022) approximate a normal distribution, with the mode being in 2014. However, there is also a small peak in 2006
+
+## 5.8 Relationships between the year of youtuber creation and four different "ranks"
+
+Using the median of ranking data to represent ranking values.
+
+```{r warning=FALSE}
+
+lineplot_median_rank <- ggplot(median_rank_by_year, aes(x = created_year, y = median_rank)) +
+  geom_point(color = "skyblue", size = 1, shape = 19) +
+  geom_line(color = "skyblue", size = 0.8) + 
+  labs(title = "Created Year vs. Rank", x = "Created Year", y = "Median Rank") +
+  xlim(2004, max(youtubedata$created_year)) +
+  ylim(0, max(median_rank_by_year$median_rank)) + 
+  common_theme_3
+
+lineplot_median_views_rank <- ggplot(median_rank_by_year, aes(x = created_year, y = median_views_rank)) +
+  geom_point(color = "skyblue", size = 1, shape = 19) +
+  geom_line(color = "skyblue", size = 0.8) +  
+  labs(title = "Created Year vs. Video Views Rank", x = "Created Year", y = "Median Video Views Rank") +
+  xlim(2004, max(youtubedata$created_year)) +
+  ylim(0, 5000) + 
+  common_theme_3
+
+lineplot_median_country_rank <- ggplot(median_rank_by_year, aes(x = created_year, y = median_country_rank)) +
+  geom_point(color = "skyblue", size = 1, shape = 19) +
+  geom_line(color = "skyblue", size = 0.8) + 
+  labs(title = "Created Year vs. Country Rank", x = "Created Year", y = "Median Country Rank") +
+  xlim(2004, max(youtubedata$created_year)) +
+  ylim(0, max(median_rank_by_year$median_country_rank)) +  
+  common_theme_3
+  
+
+lineplot_median_channel_type_rank <- ggplot(median_rank_by_year, aes(x = created_year, y = median_channel_type_rank)) +
+  geom_point(color = "skyblue", size = 1, shape = 19) +
+  geom_line(color = "skyblue", size = 0.8) + 
+  labs(title = "Created Year vs. Channel Type Rank", x = "Created Year", y = "Median Channel Type Rank") +
+  xlim(2004, max(youtubedata$created_year)) +
+  ylim(0, max(median_rank_by_year$median_channel_type_rank)) + 
+  common_theme_3
+
+combined_median_lineplot <- 
+  cowplot::plot_grid(
+    lineplot_median_rank, lineplot_median_views_rank, lineplot_median_country_rank, lineplot_median_channel_type_rank,
+    ncol = 2, align = "hv"
+  ) +
+  theme(plot.margin = margin(10, 10, 10, 10))
+
+
+print(combined_median_lineplot)
+
+```
+It can be observed that after 2020, except for 'video views rank,' the ranking values of other categories have increased. This indicates a decline in rankings
+
+# 6 Geographical information
+
+## 6.1Count the number of YouTubers for each continent/ocean
+
+```{r}
+
+youtubedata$Continent <- countrycode(youtubedata$Country, origin = "country.name", destination = "continent")
+continent_counts <- table(youtubedata$Continent)
+continent_counts_df <- data.frame(Continent = names(continent_counts), Count = as.numeric(continent_counts))
+p17<- ggplot(continent_counts_df, aes(x = "", y = Count, fill = Continent)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  labs(title = "Distribution of YouTuber Counts Across Different Continents/Oceans", fill = "Continent") +
+  theme_minimal() + common_theme_4 +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank()) +
+  scale_fill_manual(values = c("Africa" ="#a38b93", "Asia" = "#e6b0af", "Europe" = "#872657", "Americas" = "#cd5252", "Oceania" = "#f5e2de"))
+print(p17)
+
+```
+
+We can see that youtubers from the Americas make up more than half, while Africa has the fewest.
+
+## 6.2 Geographical Distribution of YouTubers' Countries
+
+```{r warning=FALSE}
+
+world_map <- map_data("world")
+
+p18<- ggplot() +
+  geom_polygon(data = world_map, aes(x = long, y = lat, group = group), 
+               fill = "white", color = "black") +
+  geom_point(data = youtubedata, aes(x = Longitude, y = Latitude), size = 1, color = "#ff7fa7") +
+  labs(title = "Geographical Distribution of YouTubers' Countries") +
+  theme_minimal() + common_theme +
+  theme(axis.title = element_blank(),  
+        axis.text = element_blank())  
+p18 + coord_cartesian(xlim = c(-180, 180), ylim = c(-90, 90), expand = FALSE)
+
+```
+
+# 7 Reference
+In the data analysis process, syntax generated by Chart GPT was referenced, replacing some of the variables within it.
+
+# 8 Shinny app
+The code can be seen and executed in the RMD file.
+## link 
+https://youtu.be/cHmA1A4hW-8
+```{r eval=FALSE, include=FALSE}
+# Load required libraries
+library(shiny)
+library(ggplot2)
+library(dplyr)
+
+# Load dataset
+youtubedata <- read.csv("Global YouTube Statistics.csv")
+
+# Data cleaning
+youtubedata[youtubedata == "nan"] <- NA
+youtubedata[youtubedata == "NaN"] <- NA
+youtubedata <- youtubedata[!is.na(youtubedata$channel_type), ]
+
+# Define UI
+ui <- fluidPage(
+  titlePanel("Please choose varialbles and plots"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("x_variable", "Select X-axis variable", 
+                  choices = c("subscribers", "video_views_for_the_last_30_days",
+                              "highest_yearly_earnings", "highest_monthly_earnings", 
+                              "lowest_yearly_earnings", "lowest_monthly_earnings"),
+                  selected = "subscribers"),
+      
+      
+      
+      checkboxGroupInput("plot_type", "Select Plot Type", 
+                         choices = c("Histogram", "Density Curve", "Boxplot"), 
+                         selected = "Histogram"),
+      
+      selectInput(
+        "bivariate_plot_type", "Select Bivariate Plot Type",
+        choices = c("Scatter Plot", "Hexbin Plot", "Density Plot", "Linear Relationship"),
+        selected = "Scatter Plot"
+      ),
+      
+    
+    checkboxInput("show_channel_plot", "Show Channel Type Distribution", value = TRUE),
+      
+  
+       selectInput("channel_plot_type", "Channel Type Distribution Plot ",
+                  choices = c("Bar Plot", "Ordered Horizontal Bar Plot"),
+                  selected = "Bar Plot")
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Single Variable  Distribution", plotOutput("distribution_plot")),
+        
+       
+        tabPanel("Channel Type Distribution", plotOutput("channel_plot")),
+        
+        tabPanel("Bivariate Plot", plotOutput("bivariate_plot"))
+      )
+    )
+  )
+)
+
+# Define server logic
+server <- function(input, output) {
+  
+  output$distribution_plot <- renderPlot({
+    x_variable <- input$x_variable
+    
+    if (x_variable == "subscribers") {
+      youtubedata_filtered <- youtubedata %>%
+        filter(subscribers <= 2.08e+8)
+      binwidth <- 5e+6
+    } else if (x_variable == "video_views_for_the_last_30_days") {
+      youtubedata_filtered <- youtubedata
+      binwidth <- 1e+08
+    } else if (x_variable == "highest_yearly_earnings") {
+      youtubedata_filtered <- youtubedata
+      binwidth <- 5e+06
+    } else if (x_variable == "lowest_yearly_earnings") {
+      youtubedata_filtered <- youtubedata %>%
+        filter(lowest_yearly_earnings >= 0e+00, lowest_yearly_earnings <= 1e+07)
+      binwidth <- 5e+05
+    } else if (x_variable == "highest_monthly_earnings") {
+      youtubedata_filtered <- youtubedata
+      binwidth <- 5e+05
+    } else if (x_variable == "lowest_monthly_earnings") {
+      youtubedata_filtered <- youtubedata %>%
+        filter(lowest_monthly_earnings >= 0e+00, lowest_monthly_earnings <= 1e+06)
+      binwidth <- 5e+04
+    } else if (x_variable == "channel_type") {
+      youtubedata_filtered <- youtubedata
+      binwidth <- NULL
+    }
+    
+    gg <- switch(input$plot_type,
+                 "Histogram" = {
+                   if (!is.null(binwidth)) {
+                     ggplot(youtubedata_filtered, aes_string(x = x_variable)) +
+                       geom_histogram(binwidth = binwidth, fill = "grey", color = "black") +
+                       xlab(input$x_variable) +
+                       ylab("Frequency") +
+                       ggtitle(paste("Distribution of", input$x_variable, " (Histogram)"))
+                   } else {
+                     ggplot(youtubedata_filtered, aes_string(x = x_variable)) +
+                       geom_bar(fill = "blue", color = "black") +
+                       xlab(input$x_variable) +
+                       ylab("Frequency") +
+                       ggtitle(paste("Distribution of", input$x_variable, " (Histogram)"))
+                   }
+                 },
+                 "Density Curve" = ggplot(youtubedata_filtered, aes_string(x = x_variable)) +
+                   geom_density(fill = "green", color = "black") +
+                   xlab(input$x_variable) +
+                   ylab("Density") +
+                   ggtitle(paste("Distribution of", input$x_variable, " (Density Curve)")),
+                 "Boxplot" = ggplot(youtubedata_filtered, aes_string(y = x_variable)) +
+                   geom_boxplot(fill = "orange", color = "black", width = 0.2) +
+                   xlab(input$x_variable) +
+                   ggtitle(paste("Distribution of", input$x_variable, " (Boxplot)"))
+    )
+    
+    gg
+  })
+  
+ 
+  output$bivariate_plot <- renderPlot({
+    bivariate_plot_type <- input$bivariate_plot_type
+    
+    p <- NULL
+    
+    if (bivariate_plot_type == "Scatter Plot") {
+      p <- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+        geom_jitter(color = "skyblue", alpha = 0.6, width = 0.2, height = 0.2) +
+        labs(title = "Subscribers vs. Video Views (Scatter Plot)",
+             x = "Subscribers", y = "Video Views")
+    } else if (bivariate_plot_type == "Hexbin Plot") {
+      p <- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+        geom_hex() +
+        labs(title = "Hexbin Scatter Plot Subscribers vs. Video Views",
+             x = "Subscribers", y = "Video Views")
+    } else if (bivariate_plot_type == "Density Plot") {
+      p <- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+        geom_density_2d(color = "skyblue", alpha = 0.6) +
+        labs(title = "Kernel Density Estimation: Subscribers vs. Video Views",
+             x = "Subscribers", y = "Video Views")
+    } else if (bivariate_plot_type == "Linear Relationship") {
+      p <- ggplot(youtubedata, aes(x = subscribers, y = video.views)) +
+        geom_jitter(color = "skyblue", alpha = 0.6) +
+        geom_smooth(method = "lm", se = FALSE, color = "#0f5894") +
+        labs(title = "Linear Relationship: Subscribers vs. Video Views",
+             x = "Subscribers", y = "Video Views")
+    }
+    
+    p
+  })
+  
+  
+  output$channel_plot <- renderPlot({
+    if (input$show_channel_plot) {
+      channel_type_plot <- switch(input$channel_plot_type,
+                                  "Bar Plot" = ggplot(youtubedata, aes(x = channel_type)) +
+                                    geom_bar(fill = "grey") +
+                                    labs(title = "Channel Type Distribution", x = "Channel Type", y = "Channel Count") +
+                                    theme_minimal(),
+                                  "Horizontal Bar Plot" = ggplot(youtubedata, aes(y = channel_type)) +
+                                    geom_bar(fill = "grey") +
+                                    labs(title = "Horizontal Channel Type Distribution", x = "Channel Count", y = "Channel Type") +
+                                    theme_minimal() +
+                                    coord_flip(),
+                                  "Ordered Horizontal Bar Plot" = {
+                                    channel_type_o <- youtubedata %>%
+                                      count(channel_type) %>%
+                                      arrange(desc(n)) %>%
+                                      pull(channel_type)
+                                    
+                                    ggplot(youtubedata, aes(x = factor(channel_type, levels = channel_type_o), fill = channel_type)) +
+                                      geom_bar() +
+                                      labs(title = "Ordered Channel Type Distribution", y = "Channel Count", x = "Channel Type") +
+                                      theme_minimal() +
+                                      coord_flip()
+                                  }
+      )
+      
+      return(channel_type_plot)
+    } else {
+      
+      return(NULL)
+    }
+  })
+}
+
+# Run the Shiny application
+shinyApp(ui, server)
+
+```
+
+
